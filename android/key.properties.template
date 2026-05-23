@@ -1,0 +1,9 @@
+# Copy this file to `key.properties` (without the .template suffix), fill
+# in your actual values, and DO NOT commit `key.properties` to git.
+#
+# See android/KEY_SETUP.md for keystore generation instructions.
+
+storeFile=/absolute/path/to/your/upload-keystore.jks
+storePassword=replace-with-your-store-password
+keyAlias=upload
+keyPassword=replace-with-your-key-password

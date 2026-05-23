@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "349058450896",
+    "project_id": "five-fold-chess",
+    "storage_bucket": "five-fold-chess.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:349058450896:android:4b56c86096f0c56f1065d5",
+        "android_client_info": {
+          "package_name": "com.fivefoldchess.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBZey3aoKakySz9ntjAAGKvooAwm2vB4lw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

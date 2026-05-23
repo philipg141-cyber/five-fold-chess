@@ -1,0 +1,74 @@
+rules_version = '2';
+
+// =============================================================
+// Fivefold Chess — Firestore security rules
+//
+// Deploy with:    firebase deploy --only firestore:rules
+// =============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- /users/{uid} ----------
+    // A user document is owned by the user it represents. Anyone signed in
+    // can read another player's profile (needed for the lobby and the
+    // post-game ELO update view), but only the owner can write to their own
+    // record. ELO and gamesPlayed are write-only by Cloud Functions in the
+    // production deployment — see functions/src/finalizeGame.ts. Until that
+    // function is deployed, the client owner is allowed to update them so
+    // local development isn't blocked.
+    match /users/{uid} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+                            && request.auth.uid == uid
+                            && request.resource.data.uid == uid;
+      allow delete: if false;
+    }
+
+    // ---------- /queue/{variant}/waiting/{uid} ----------
+    // Matchmaking queue. Each waiter is a doc keyed by their own uid so
+    // they can only place/remove themselves.
+    match /queue/{variant}/waiting/{uid} {
+      allow read: if request.auth != null;
+      allow create, delete: if request.auth != null && request.auth.uid == uid;
+      // Allow opponent to delete me when pairing me into a game.
+      allow delete: if request.auth != null;
+      allow update: if false;
+    }
+
+    // ---------- /games/{gameId} ----------
+    // Two-player games. Both participants can read; either can append a
+    // move to history; nothing else can be edited from clients.
+    match /games/{gameId} {
+      allow read: if request.auth != null
+                  && (request.auth.uid == resource.data.whiteUid
+                   || request.auth.uid == resource.data.blackUid);
+
+      // Creation happens during pairing. The creator must list themselves
+      // as one of the two players and must initialise empty history.
+      allow create: if request.auth != null
+                    && (request.auth.uid == request.resource.data.whiteUid
+                     || request.auth.uid == request.resource.data.blackUid)
+                    && request.resource.data.history is list
+                    && request.resource.data.history.size() == 0
+                    && request.resource.data.result == null;
+
+      // Updates: only by participants. The new state must be one move
+      // longer than the old, must keep player ids identical, and must
+      // not retroactively rewrite past moves.
+      allow update: if request.auth != null
+                    && (request.auth.uid == resource.data.whiteUid
+                     || request.auth.uid == resource.data.blackUid)
+                    && request.resource.data.whiteUid == resource.data.whiteUid
+                    && request.resource.data.blackUid == resource.data.blackUid
+                    && request.resource.data.variant  == resource.data.variant
+                    && request.resource.data.history is list
+                    // Append-only: new history is exactly old + 1 entry.
+                    && request.resource.data.history.size()
+                       == resource.data.history.size() + 1;
+
+      // Deletion is reserved for clean-up Cloud Functions, never clients.
+      allow delete: if false;
+    }
+  }
+}
