@@ -40,6 +40,13 @@ post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
 
+    # Fix 4: Firebase/Flutter — allow non-modular header includes so
+    # firebase_auth's headers that #include <Firebase/Firebase.h> compile
+    # inside the framework module.
+    target.build_configurations.each do |config|
+      config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+    end
+
     # Fix 1: BoringSSL-GRPC attaches a malformed per-file flag
     # '-GCC_WARN_INHIBIT_ALL_WARNINGS'; Xcode 16+ clang reads the leading
     # -G as an unsupported option. Strip it.
@@ -62,13 +69,13 @@ post_install do |installer|
     File.write(xcconfig, patched) unless patched == text
   end
 
-  # Fix 3: gRPC-Core's basic_seq.h won't parse on Xcode 16+ clang
-  # ("template argument list expected"). Add an explicit empty <> to the
-  # template call. gsub is idempotent (won't re-match once it has <>).
-  grpc_seq = File.join(installer.sandbox.root, 'gRPC-Core', 'src', 'core', 'lib', 'promise', 'detail', 'basic_seq.h')
-  if File.exist?(grpc_seq)
-    text = File.read(grpc_seq)
+  # Fix 3: gRPC's basic_seq.h won't parse on Xcode 16+ clang. Patch every
+  # copy under Pods (some are read-only — make writable first).
+  Dir.glob(File.join(installer.sandbox.root, '**', 'promise', 'detail', 'basic_seq.h')).each do |seq|
+    text = File.read(seq)
     patched = text.gsub('Traits::template CallSeqFactory(', 'Traits::template CallSeqFactory<>(')
-    File.write(grpc_seq, patched) unless patched == text
+    next if patched == text
+    File.chmod(0644, seq) rescue nil
+    File.write(seq, patched)
   end
 end
