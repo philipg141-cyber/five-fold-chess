@@ -40,10 +40,9 @@ post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
 
-    # BoringSSL-GRPC (pulled in by Firebase/Firestore) attaches a malformed
-    # per-file flag '-GCC_WARN_INHIBIT_ALL_WARNINGS'. Xcode 16+'s clang reads
-    # the leading -G as an unsupported option -> "unsupported option '-G'".
-    # Strip it from every file in that target.
+    # Fix 1: BoringSSL-GRPC attaches a malformed per-file flag
+    # '-GCC_WARN_INHIBIT_ALL_WARNINGS'; Xcode 16+ clang reads the leading
+    # -G as an unsupported option. Strip it.
     if target.name == 'BoringSSL-GRPC'
       target.source_build_phase.files.each do |file|
         next unless file.settings && file.settings['COMPILER_FLAGS']
@@ -54,14 +53,22 @@ post_install do |installer|
     end
   end
 
-  # Stockfish embeds its NNUE nets via an incbin inline-asm directive. The
-  # Release config's -flto=full defers assembling that to link time, where the
-  # -I path that locates the .nnue files is out of scope -> "Could not find
-  # incbin file". Strip -flto so the nets embed at compile time.
+  # Fix 2: Stockfish embeds its NNUE nets via incbin; Release's -flto=full
+  # defers that to link time where the include path is gone. Strip -flto.
   stockfish_support = File.join(installer.sandbox.root, 'Target Support Files', 'stockfish')
   Dir.glob(File.join(stockfish_support, '*.xcconfig')).each do |xcconfig|
     text = File.read(xcconfig)
     patched = text.gsub('-flto=full', '')
     File.write(xcconfig, patched) unless patched == text
+  end
+
+  # Fix 3: gRPC-Core's basic_seq.h won't parse on Xcode 16+ clang
+  # ("template argument list expected"). Add an explicit empty <> to the
+  # template call. gsub is idempotent (won't re-match once it has <>).
+  grpc_seq = File.join(installer.sandbox.root, 'gRPC-Core', 'src', 'core', 'lib', 'promise', 'detail', 'basic_seq.h')
+  if File.exist?(grpc_seq)
+    text = File.read(grpc_seq)
+    patched = text.gsub('Traits::template CallSeqFactory(', 'Traits::template CallSeqFactory<>(')
+    File.write(grpc_seq, patched) unless patched == text
   end
 end
