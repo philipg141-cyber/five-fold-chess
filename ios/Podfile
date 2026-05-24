@@ -39,5 +39,29 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+
+    # BoringSSL-GRPC (pulled in by Firebase/Firestore) attaches a malformed
+    # per-file flag '-GCC_WARN_INHIBIT_ALL_WARNINGS'. Xcode 16+'s clang reads
+    # the leading -G as an unsupported option -> "unsupported option '-G'".
+    # Strip it from every file in that target.
+    if target.name == 'BoringSSL-GRPC'
+      target.source_build_phase.files.each do |file|
+        next unless file.settings && file.settings['COMPILER_FLAGS']
+        flags = file.settings['COMPILER_FLAGS'].split
+        flags.reject! { |f| f == '-GCC_WARN_INHIBIT_ALL_WARNINGS' }
+        file.settings['COMPILER_FLAGS'] = flags.join(' ')
+      end
+    end
+  end
+
+  # Stockfish embeds its NNUE nets via an incbin inline-asm directive. The
+  # Release config's -flto=full defers assembling that to link time, where the
+  # -I path that locates the .nnue files is out of scope -> "Could not find
+  # incbin file". Strip -flto so the nets embed at compile time.
+  stockfish_support = File.join(installer.sandbox.root, 'Target Support Files', 'stockfish')
+  Dir.glob(File.join(stockfish_support, '*.xcconfig')).each do |xcconfig|
+    text = File.read(xcconfig)
+    patched = text.gsub('-flto=full', '')
+    File.write(xcconfig, patched) unless patched == text
   end
 end
