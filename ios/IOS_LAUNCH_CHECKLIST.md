@@ -25,37 +25,32 @@ cd ..
 Auth, Firestore, Cloud Functions, Stockfish, Hive, and the rest. The
 first run takes 2–4 minutes; subsequent runs are seconds.
 
-## Firebase iOS configuration
+## Firebase iOS configuration  — DONE (verify in Xcode)
 
-The Firebase project already has an iOS app registered (visible in
-`firebase_options.dart` as `1:349058450896:ios:937d2c722138e40a1065d5`),
-but the platform config file isn't checked in. Re-run flutterfire and
-select iOS:
+The iOS app is registered in Firebase under the production bundle ID
+`com.fivefoldchess.app` (App ID `1:349058450896:ios:de9ac839bf64eeca1065d5`),
+and `GoogleService-Info.plist` is checked in at `ios/Runner/`.
+`firebase_options.dart` has been updated to match (iOS App ID + bundle
+ID), so the Dart options and the plist agree.
 
-```
-dart pub global activate flutterfire_cli   # if not installed
-flutterfire configure --project=five-fold-chess --platforms=ios
-```
+One Xcode step remains on the Mac: open `ios/Runner.xcworkspace`, and if
+`GoogleService-Info.plist` isn't already showing as a member of the
+Runner target, drag it into the Runner group in the Project Navigator
+and check the "Runner" target box during the drag. (If you re-run
+`flutterfire configure --platforms=ios` on the Mac it will re-confirm
+all of this automatically.)
 
-This drops `GoogleService-Info.plist` into `ios/Runner/`. Open the
-project once in Xcode and drag the file into the Runner group inside
-the Project Navigator (the file needs to be a member of the Runner
-target — Xcode handles this if you check the box during the drag).
+## Bundle identifier  — DONE
 
-## Bundle identifier
+Set to `com.fivefoldchess.app` (matching the Android applicationId) in
+all six `PRODUCT_BUNDLE_IDENTIFIER` entries of
+`ios/Runner.xcodeproj/project.pbxproj` (app targets =
+`com.fivefoldchess.app`, test targets = `com.fivefoldchess.app.RunnerTests`).
+Firebase and `firebase_options.dart` already reflect it (see above).
 
-Currently `com.example.fivefoldChess` (the Flutter default). For App
-Store submission you need a real reverse-DNS identifier you control.
-In Xcode: open `ios/Runner.xcworkspace`, select the Runner project,
-**Signing & Capabilities** tab, change **Bundle Identifier**.
-
-When you change it, also update:
-- The bundle ID in your Firebase iOS app config (Firebase Console →
-  Project settings → Your apps → iOS app → Bundle ID), then re-run
-  `flutterfire configure --platforms=ios` so the new
-  `GoogleService-Info.plist` matches.
-- The bundle ID for your AdMob iOS app (admob.google.com → Apps → iOS
-  app → Settings → Linked store ID).
+Still to do on the AdMob side: confirm the iOS app's Linked Store ID
+(admob.google.com → Apps → iOS app → Settings) matches
+`com.fivefoldchess.app`.
 
 ## Signing
 
@@ -93,6 +88,12 @@ Transparency prompt can be shown.
 If you customise the ATT description text, edit the
 `NSUserTrackingUsageDescription` value in `Info.plist`. Apple is
 strict about this string actually describing how tracking will be used.
+
+The `SKAdNetworkItems` block (50 identifiers from Google's official
+list, for install attribution on iOS 14+) is already in `Info.plist`.
+Google updates that list occasionally; refresh it from
+developers.google.com/admob/ios/privacy/strategies before a major
+release if you want the newest buyers. Not a review blocker.
 
 ## App Store submission
 
